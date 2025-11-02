@@ -82,51 +82,90 @@ def create_price_chart(df, prediction=None, current_price=None):
     """Create an interactive price chart with Plotly"""
     fig = go.Figure()
     
-    # Candlestick chart for recent data
-    recent_df = df.tail(100)
+    # Show last 200 bars (about 1 trading day) for cleaner view
+    # Users can zoom to see more or less
+    num_bars = min(200, len(df))
+    recent_df = df.tail(num_bars).copy()
+    
+    # Create continuous index (removes gaps from non-trading hours)
+    recent_df['Index'] = range(len(recent_df))
+    
+    # Create custom hover text with actual datetime
+    recent_df['HoverText'] = recent_df['Datetime'].dt.strftime('%Y-%m-%d %H:%M')
+    
     fig.add_trace(go.Candlestick(
-        x=recent_df['Datetime'],
+        x=recent_df['Index'],
         open=recent_df['Open'],
         high=recent_df['High'],
         low=recent_df['Low'],
         close=recent_df['Close'],
         name='Price',
-        showlegend=True
+        showlegend=True,
+        text=recent_df['HoverText'],
+        hoverinfo='text+y'
     ))
     
     # Add prediction point if available
     if prediction is not None and current_price is not None:
-        last_time = df['Datetime'].iloc[-1]
-        pred_time = last_time + timedelta(minutes=10)
+        last_index = recent_df['Index'].iloc[-1]
+        pred_index = last_index + 2  # 2 bars ahead (10 minutes)
         
         # Prediction color based on direction
         pred_color = '#ff6b6b' if prediction < current_price else '#51cf66'
         
         # Draw prediction line - simple and clean
         fig.add_trace(go.Scatter(
-            x=[last_time, pred_time],
+            x=[last_index, pred_index],
             y=[current_price, prediction],
             mode='lines+markers',
             name=f'Prediction: ${prediction:.2f}',
             line=dict(color=pred_color, width=4),
             marker=dict(size=[10, 15], color=pred_color, symbol='diamond'),
-            showlegend=True
+            showlegend=True,
+            hovertemplate='<b>Predicted Price</b><br>$%{y:.2f}<extra></extra>'
         ))
     
+    # Create custom x-axis labels showing time at intervals
+    # Show every 15th bar for cleaner view
+    tick_step = max(1, len(recent_df)//15)
+    tick_indices = list(range(0, len(recent_df), tick_step))
+    tick_labels = [recent_df.iloc[i]['Datetime'].strftime('%m/%d %H:%M') for i in tick_indices]
+    
     fig.update_layout(
-        title='Price Movement & Prediction',
-        xaxis_title='Time',
+        title=f'📈 Price Chart - Last {num_bars} Bars (Zoom & Pan Enabled)',
+        xaxis_title='Trading Time (Continuous)',
         yaxis_title='Price ($)',
         template='plotly_white',
-        height=600,
+        height=700,
+        xaxis=dict(
+            tickmode='array',
+            tickvals=tick_indices,
+            ticktext=tick_labels,
+            tickangle=-45
+        ),
         xaxis_rangeslider_visible=False,
         hovermode='x unified',
+        dragmode='zoom',  # Enable zoom by default
         legend=dict(
             yanchor="top",
             y=0.99,
             xanchor="left",
             x=0.01,
             bgcolor='rgba(255,255,255,0.8)'
+        )
+    )
+    
+    # Enable interactive features
+    fig.update_xaxes(
+        rangeslider_visible=False,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=50, label="50 bars", step="all", stepmode="backward"),
+                dict(count=100, label="100 bars", step="all", stepmode="backward"),
+                dict(label="All", step="all")
+            ]),
+            bgcolor='rgba(150, 150, 150, 0.1)',
+            activecolor='rgba(100, 100, 255, 0.3)'
         )
     )
     
@@ -336,6 +375,20 @@ if predict_button:
             
             # Price chart
             st.subheader("📈 Price Chart with Prediction")
+            
+            # Chart controls info
+            with st.expander("ℹ️ Chart Controls", expanded=False):
+                st.markdown("""
+                **Interactive Features:**
+                - 🖱️ **Drag** to pan left/right
+                - 🔍 **Scroll** or **pinch** to zoom in/out
+                - 🔘 **Click buttons** above chart: "50 bars", "100 bars", "All"
+                - 📌 **Double-click** to reset zoom
+                - 💡 **Hover** over candles for details
+                
+                The chart shows continuous trading time (gaps removed for clarity).
+                """)
+            
             fig = create_price_chart(df, predicted_price, current_price)
             st.plotly_chart(fig, use_container_width=True)
             
