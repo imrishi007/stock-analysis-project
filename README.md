@@ -1,4 +1,4 @@
-# � AlphaVision - AI Stock Price Predictor
+# 📈 AlphaVision - AI Stock Price Predictor
 
 > **AI-Powered Stock Price Predictions** | Predict. Analyze. Profit.
 

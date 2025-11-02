@@ -10,7 +10,7 @@ from data_importer import StockDataImporter
 # Page configuration
 st.set_page_config(
     page_title="AlphaVision - AI Stock Predictor",
-    page_icon="📈",
+    page_icon="AV.png",  # Your custom logo as favicon
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -196,7 +196,7 @@ def create_price_chart(df, prediction=None, current_price=None):
 # Header with Logo
 st.markdown("""
 <div class="logo-container">
-    <div class="logo-icon">�</div>
+    <div class="logo-icon">📈</div>
     <h1 class="main-header">AlphaVision</h1>
 </div>
 <p class="tagline">AI-Powered Stock Price Predictions</p>
@@ -208,7 +208,7 @@ with st.sidebar:
     # Sidebar branding
     st.markdown("""
     <div style='text-align: center; margin-bottom: 1rem;'>
-        <h2 style='color: #667eea; margin: 0;'>� AlphaVision</h2>
+        <h2 style='color: #667eea; margin: 0;'>📈 AlphaVision</h2>
         <p style='color: #888; font-size: 0.9rem; margin: 0;'>Predict. Analyze. Profit.</p>
     </div>
     """, unsafe_allow_html=True)
@@ -273,10 +273,24 @@ if predict_button:
         try:
             # Get data
             data_importer = get_data_importer()
+            
+            # Show progress
+            st.info(f"📡 Connecting to Yahoo Finance for {symbol}...")
             df = data_importer.get_or_update_data(symbol)
             
             if df is None or df.empty:
-                st.error(f"❌ No data available for {symbol}. Please check the symbol.")
+                st.error(f"❌ No data available for {symbol}.")
+                st.warning("""
+                **Possible reasons:**
+                - Invalid stock symbol
+                - Yahoo Finance API temporarily unavailable
+                - Network connectivity issues on Streamlit Cloud
+                
+                **Try:**
+                - Check if the symbol is correct (e.g., AAPL, MSFT, GOOGL)
+                - Wait a few seconds and try again
+                - Refresh the page
+                """)
                 st.stop()
             
             # Get company info

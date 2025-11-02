@@ -12,43 +12,50 @@ class StockDataImporter:
         # No database needed - all caching handled by Streamlit
         pass
 
-    @st.cache_data(ttl=3600)  # Cache for 1 hour
+    @st.cache_data(ttl=3600, show_spinner="Fetching stock data...")  # Cache for 1 hour
     def _fetch_yf_data(_self, symbol, period="60d", interval="5m"):
         """Fetch data from yfinance with retries and caching"""
-        max_retries = 3
+        max_retries = 5  # Increased retries for cloud environment
+        
         for attempt in range(max_retries):
             try:
-                # Set auto_adjust explicitly to handle the warning
-                df = yf.download(
-                    symbol, 
-                    period=period, 
-                    interval=interval, 
-                    progress=False,
-                    auto_adjust=True
-                )
+                print(f"Fetching {symbol} data (attempt {attempt + 1}/{max_retries})...")
+                
+                # Try with longer timeout
+                ticker = yf.Ticker(symbol)
+                df = ticker.history(period=period, interval=interval, auto_adjust=True)
                 
                 if not df.empty:
-                    if isinstance(df.columns, pd.MultiIndex):
-                        df.columns = [col[0] for col in df.columns]
                     df.reset_index(inplace=True)
+                    
+                    # Handle column names
+                    df.columns = [col if not isinstance(col, tuple) else col[0] for col in df.columns]
                     
                     # Verify we have the expected columns
                     required_columns = ['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
                     missing_columns = [col for col in required_columns if col not in df.columns]
                     
                     if missing_columns:
-                        print(f"Missing columns for {symbol}: {missing_columns}")
-                        continue
-                        
+                        print(f"⚠️ Missing columns for {symbol}: {missing_columns}")
+                        if attempt < max_retries - 1:
+                            time.sleep(3)
+                            continue
+                    
+                    print(f"✅ Successfully fetched {len(df)} rows for {symbol}")
                     return df
                 else:
-                    print(f"Empty dataframe received for {symbol}")
+                    print(f"⚠️ Empty dataframe received for {symbol} on attempt {attempt + 1}")
                     
             except Exception as e:
-                print(f"Attempt {attempt + 1} failed for {symbol}: {str(e)}")
-                if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
-                    
+                print(f"❌ Attempt {attempt + 1} failed for {symbol}: {type(e).__name__}: {str(e)}")
+                
+            # Wait before retry with exponential backoff
+            if attempt < max_retries - 1:
+                wait_time = (2 ** attempt) + 1  # 1, 3, 5, 9, 17 seconds
+                print(f"⏳ Waiting {wait_time}s before retry...")
+                time.sleep(wait_time)
+        
+        print(f"❌ All {max_retries} attempts failed for {symbol}")
         return pd.DataFrame()
 
     def get_latest_data(self, symbol):
