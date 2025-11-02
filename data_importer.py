@@ -170,7 +170,8 @@ class StockDataImporter:
             # Convert string datetime back to datetime object
             df['Datetime'] = pd.to_datetime(df['Datetime'])
             
-            # Calculate technical indicators
+            # Calculate technical indicators with raw volume first
+            # The volume-based indicators (OBV, VWAP, MFI, etc.) need raw volume values
             df = ta.add_all_ta_features(
                 df,
                 open="Open",
@@ -181,9 +182,9 @@ class StockDataImporter:
                 fillna=True
             )
             
-            # Transform Volume to match training data (keeping original Volume)
-            df['Volume_Original'] = df['Volume']  # Store original volume
-            df['Volume'] = np.log1p(df['Volume'])  # Replace Volume with log-transformed version
+            # After calculating all indicators, transform Volume column to log scale
+            # This matches the training process where Volume was log-transformed in-place
+            df['Volume'] = np.log1p(df['Volume'])
             
             return df
             
