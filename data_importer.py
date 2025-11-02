@@ -6,6 +6,9 @@ import streamlit as st
 from datetime import datetime, timedelta
 import time
 
+# Configure yfinance to use proper headers (prevents blocking)
+yf.pdr_override()
+
 class StockDataImporter:
     def __init__(self, data_dir="stock_data"):
         """Initialize the data importer with in-memory caching via Streamlit"""
@@ -17,13 +20,20 @@ class StockDataImporter:
         """Fetch data from yfinance with retries and caching"""
         max_retries = 5  # Increased retries for cloud environment
         
+        # Set user agent to avoid blocking
+        import requests
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        
         for attempt in range(max_retries):
             try:
                 print(f"🔄 Attempt {attempt + 1}/{max_retries}: Fetching {symbol} data...")
                 
-                # Method 1: Try with Ticker.history() first
+                # Method 1: Try with Ticker.history() first using custom session
                 try:
-                    ticker = yf.Ticker(symbol)
+                    ticker = yf.Ticker(symbol, session=session)
                     df = ticker.history(period=period, interval=interval, auto_adjust=True)
                     method = "Ticker.history()"
                 except Exception as e1:
@@ -36,7 +46,8 @@ class StockDataImporter:
                             interval=interval,
                             progress=False,
                             auto_adjust=True,
-                            timeout=10
+                            timeout=10,
+                            session=session
                         )
                         method = "yf.download()"
                     except Exception as e2:
