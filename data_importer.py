@@ -19,17 +19,36 @@ class StockDataImporter:
         
         for attempt in range(max_retries):
             try:
-                print(f"Fetching {symbol} data (attempt {attempt + 1}/{max_retries})...")
+                print(f"🔄 Attempt {attempt + 1}/{max_retries}: Fetching {symbol} data...")
                 
-                # Try with longer timeout
-                ticker = yf.Ticker(symbol)
-                df = ticker.history(period=period, interval=interval, auto_adjust=True)
+                # Method 1: Try with Ticker.history() first
+                try:
+                    ticker = yf.Ticker(symbol)
+                    df = ticker.history(period=period, interval=interval, auto_adjust=True)
+                    method = "Ticker.history()"
+                except Exception as e1:
+                    print(f"  Method 1 failed: {type(e1).__name__}: {str(e1)}")
+                    # Method 2: Fallback to yf.download()
+                    try:
+                        df = yf.download(
+                            symbol,
+                            period=period,
+                            interval=interval,
+                            progress=False,
+                            auto_adjust=True,
+                            timeout=10
+                        )
+                        method = "yf.download()"
+                    except Exception as e2:
+                        print(f"  Method 2 failed: {type(e2).__name__}: {str(e2)}")
+                        raise e2
                 
                 if not df.empty:
                     df.reset_index(inplace=True)
                     
-                    # Handle column names
-                    df.columns = [col if not isinstance(col, tuple) else col[0] for col in df.columns]
+                    # Handle column names (in case of MultiIndex)
+                    if isinstance(df.columns, pd.MultiIndex):
+                        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
                     
                     # Verify we have the expected columns
                     required_columns = ['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
@@ -37,17 +56,21 @@ class StockDataImporter:
                     
                     if missing_columns:
                         print(f"⚠️ Missing columns for {symbol}: {missing_columns}")
+                        print(f"   Available columns: {df.columns.tolist()}")
                         if attempt < max_retries - 1:
                             time.sleep(3)
                             continue
                     
-                    print(f"✅ Successfully fetched {len(df)} rows for {symbol}")
+                    print(f"✅ Successfully fetched {len(df)} rows for {symbol} using {method}")
                     return df
                 else:
                     print(f"⚠️ Empty dataframe received for {symbol} on attempt {attempt + 1}")
                     
             except Exception as e:
-                print(f"❌ Attempt {attempt + 1} failed for {symbol}: {type(e).__name__}: {str(e)}")
+                print(f"❌ Attempt {attempt + 1} failed for {symbol}")
+                print(f"   Error: {type(e).__name__}: {str(e)}")
+                import traceback
+                print(f"   Traceback: {traceback.format_exc()}")
                 
             # Wait before retry with exponential backoff
             if attempt < max_retries - 1:
