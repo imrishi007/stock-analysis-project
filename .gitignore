@@ -36,7 +36,6 @@ stock_data/*.db
 
 # Jupyter Notebook
 .ipynb_checkpoints
-*.ipynb
 
 # IDE
 .vscode/
