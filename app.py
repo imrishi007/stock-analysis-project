@@ -9,8 +9,8 @@ from data_importer import StockDataImporter
 
 # Page configuration
 st.set_page_config(
-    page_title="TradeVision - AI Stock Predictor",
-    page_icon="�",
+    page_title="AlphaVision - AI Stock Predictor",
+    page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -196,8 +196,8 @@ def create_price_chart(df, prediction=None, current_price=None):
 # Header with Logo
 st.markdown("""
 <div class="logo-container">
-    <div class="logo-icon">🔮</div>
-    <h1 class="main-header">TradeVision</h1>
+    <div class="logo-icon">�</div>
+    <h1 class="main-header">AlphaVision</h1>
 </div>
 <p class="tagline">AI-Powered Stock Price Predictions</p>
 """, unsafe_allow_html=True)
@@ -208,7 +208,7 @@ with st.sidebar:
     # Sidebar branding
     st.markdown("""
     <div style='text-align: center; margin-bottom: 1rem;'>
-        <h2 style='color: #667eea; margin: 0;'>🔮 TradeVision</h2>
+        <h2 style='color: #667eea; margin: 0;'>� AlphaVision</h2>
         <p style='color: #888; font-size: 0.9rem; margin: 0;'>Predict. Analyze. Profit.</p>
     </div>
     """, unsafe_allow_html=True)
@@ -244,7 +244,7 @@ with st.sidebar:
     st.markdown("---")
     
     # Model info
-    st.subheader("ℹ️ About TradeVision")
+    st.subheader("ℹ️ About AlphaVision")
     st.info("""
     **AI-Powered Predictions:**
     - 🎯 Uses 16 technical indicators

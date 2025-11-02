@@ -1,4 +1,4 @@
-# 🔮 TradeVision - Deployment Guide
+# � AlphaVision - Deployment Guide
 
 ## 🚀 **Deploy to Streamlit Cloud (RECOMMENDED)**
 
@@ -42,7 +42,7 @@ Your repo is already ready! ✅
 ---
 
 ## 🎯 **Your App URL Will Be:**
-`https://tradevision-[random].streamlit.app`
+`https://alphavision-[random].streamlit.app`
 
 You can customize the URL in Streamlit Cloud settings!
 
@@ -57,4 +57,4 @@ Vercel is for:
 
 **NOT for Python/Streamlit apps!**
 
-Use **Streamlit Cloud** instead - it's designed specifically for Streamlit apps like TradeVision! 🔮
+Use **Streamlit Cloud** instead - it's designed specifically for Streamlit apps like AlphaVision! �
