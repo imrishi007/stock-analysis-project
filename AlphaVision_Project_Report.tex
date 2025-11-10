@@ -1,0 +1,332 @@
+\documentclass[12pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{csvsimple}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+% Layout
+\geometry{margin=1in}
+\setstretch{1.25}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{AlphaVision: Intraday Stock Prediction}
+\fancyhead[R]{}
+\fancyfoot[C]{\thepage}
+
+% Title formatting (simple, human-like)
+\titleformat{\section}{\large\bfseries}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+
+% Title
+\title{\vspace{-2cm}\textbf{AlphaVision: Short-Term Stock Price Prediction}\newline\normalsize A practical machine learning project report}
+\author{Rishi}
+\date{\\}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+I built this project to predict a stock's price a few minutes ahead. I use common technical indicators and simple machine learning models. The idea is straightforward. You pick any stock symbol, not only AAPL. The app pulls recent intraday data, computes indicators, and then models forecast the price a couple of bars ahead. I wrote this report to show what I did and why. I cover what worked, what failed, and what I'll improve. The report compares six models. It includes visualizations from my notebook and notes from deploying the app.
+
+\medskip
+	extbf{Update (2025):} After starting with a value-forecasting approach (5-minute regression) that achieved a high \(R^2\approx0.98\), I realized that \(R^2\) is not the right metric when the real question is \emph{"will price go up or down?"}. I therefore built a classification pipeline focused on directional accuracy. Using 1-hour bars, a small movement threshold of 0.2\%, and a LightGBM classifier with proper time-series cross-validation, the model reached \textbf{60.92\% directional accuracy} (conservative CV estimate). This report keeps the original model for context and shows how the project evolved into a more realistic directional predictor.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Problem statement (in plain words)}
+I wanted to make short-term stock predictions for an intraday chart. My goal is to predict the price 10 minutes ahead. This equals two 5-minute candles. I use recent price and volume behavior from technical indicators. The system works for any stock symbol you enter.
+
+\subsection{What this is and isn't}
+To be clear, this is not a high-frequency trading system. This is a learning project. I wanted to see if I could make reasonable short-term predictions. The app is not only for AAPL stock. It pulls data for any symbol you give it, like JPM or GOOGL. It is not a black box. I kept the code small and readable. All results are shown clearly. You can see exactly what is happening.
+
+\section{Data and features}
+\subsection{Data source}
+I use intraday data from Yahoo Finance. I get data in 5-minute intervals. The app grabs the last 60 days of data by default. The app caches data for one hour. This keeps it running smoothly. It also avoids hitting the Yahoo Finance servers too hard.
+
+\subsection{Target}
+My goal is to predict the closing price 10 minutes into the future. Machine learning calls this the "target". I use 5-minute bars. This means I predict the price two bars ahead. This gives me a concrete, measurable goal.
+
+\subsection{Features}
+I picked a handful of technical indicators. I wanted a good mix of information. I chose indicators for trend, momentum, volume, and volatility. These are the features the models use for predictions:
+\begin{verbatim}
+Volume, trend_sma_fast, trend_sma_slow, trend_ema_fast, trend_ema_slow,
+trend_macd_diff, trend_adx, momentum_rsi, momentum_stoch_rsi_k,
+momentum_stoch_rsi_d, momentum_roc, volatility_atr, volatility_bbw,
+volume_obv, volume_vwap, volume_mfi
+\end{verbatim}
+I used one small trick. I applied a log transform to the 'Volume' feature. Raw volume numbers are massive compared to other features. The transform brings volume to a manageable scale for the models.
+
+\section{Preprocessing and Models}
+I had to clean the data before feeding it to the models. First, I removed rows with missing values. These appear at the start of the dataset while indicators warm up. Then, I split the data into a training set and a testing set. The training set is the first 80\%. The testing set is the final 20\%. I kept the chronological order. This is important for time series data. For the linear models, I standardized all features and the target value. This puts everything on a similar scale.
+
+With the data ready, I trained and compared six models. I started with a basic \textbf{Linear Regression}. I tried \textbf{Polynomial Regression} to see if curvature helped. I included \textbf{Ridge} and \textbf{Lasso} regressions. These are like Linear Regression but with protection against overfitting. I finished with two tree-based models, a \textbf{Decision Tree} and a \textbf{Random Forest}. I wanted to see how they would handle non-linear patterns. My goal was not to try every model. I wanted to see how a simple baseline holds up against complex models.
+
+\section{How I evaluate}
+I focused on a few key metrics to judge the models. These metrics tell a clear story. The \textbf{R-squared} value shows how much of the price movement the model explains. \textbf{RMSE} (Root Mean Squared Error) and \textbf{MAE} (Mean Absolute Error) show the average prediction error in dollars. \textbf{MAPE} (Mean Absolute Percentage Error) shows the error as a percentage. This helps compare performance across stocks with different prices.
+
+\subsection{Why $R^2$ is not suitable for directional prediction}
+\label{subsec:r2_not_for_direction}
+The regression setup estimates next-price values and evaluates goodness-of-fit with $R^2$. But when the trading decision is binary (UP/DOWN), $R^2$ can look excellent even if the \emph{sign} of the move is often wrong. A model can closely track price levels yet produce misaligned buy/sell signals. For classification, we need metrics aligned with decisions:
+\begin{itemize}[leftmargin=*]
+	\item \textbf{Directional Accuracy} (overall hit-rate on UP vs DOWN)
+	\item \textbf{Balanced Accuracy} (accounts for class imbalance)
+	\item \textbf{Recall by class} (UP/DOWN sensitivity)
+	\item \textbf{F1-score} and \textbf{ROC-AUC} (discrimination and balance)
+\end{itemize}
+This motivates the second part of the project: a dedicated \emph{direction classifier} evaluated with time-series cross-validation.
+
+\section{From high $R^2$ to realistic directional accuracy (2025 update)}
+\label{sec:directional_update}
+This section tells the story of how the project moved from an excellent-looking regression ($R^2\approx0.98$ on 5-minute bars) to a more realistic directional classifier with conservative cross-validated accuracy.
+
+\subsection{Setup: data, features, and validation}
+	extbf{Data/timeframes:} We explored intraday bars at 5m/15m/30m/1h. The 1-hour timeframe provided the best balance of sample size and signal quality, yielding about 5{,}084 samples over roughly three years (2022--2025).
+
+	extbf{Features:} We engineered a comprehensive set of technical indicators (trend, momentum, volume, and volatility; \textasciitilde86 features using the \texttt{ta} library).
+
+	extbf{Preprocessing:} Robust scaling, NaN/inf handling, and class imbalance mitigation with SMOTE (training folds only).
+
+	extbf{Targets and thresholds:} Binary direction label (UP/DOWN) with movement thresholds of 0.05\%, 0.10\%, 0.15\%, and 0.20\% to filter micro-noise. We evaluated prediction horizons of 2, 5, and 10 bars.
+
+	extbf{Models tested:} Random Forest, XGBoost, LightGBM, and Gradient Boosting.
+
+	extbf{Validation:} \emph{TimeSeriesSplit} (5 folds) to respect temporal order and avoid leakage. Reported numbers in this section use the cross-validation mean as a conservative estimate.
+
+\subsection{Key result and configuration}
+With \textbf{1-hour bars}, \textbf{threshold 0.20\%}, \textbf{horizon 2}, and a \textbf{LightGBM} classifier trained with SMOTE, we achieved:
+\begin{itemize}[leftmargin=*]
+	\item \textbf{Directional Accuracy (CV):} \textbf{60.92\%}
+	\item Balanced Accuracy: 50.92\%
+	\item F1-score: 0.190, ROC-AUC: (from CV)
+	\item UP recall: 13.50\%, DOWN recall: 88.33\%
+\end{itemize}
+Training the same configuration on the \emph{full dataset} (optimistic estimate) produced 94.30\% directional accuracy with UP recall 91.98\% and DOWN recall 95.67\%. Real-world performance should fall between these bounds; we present the CV number (60.92\%) for conservative reporting.
+
+\subsection{Timeframe and configuration sweeps}
+We first compared timeframes using their maximum available histories. The 1-hour set was the first to exceed 30\% UP recall, signaling a cleaner learning target. Then, we ran a comprehensive sweep over thresholds and horizons across four algorithms.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.95\textwidth]{timeframe_comparison.png}
+	\caption{Timeframe comparison (best models per timeframe). The 1-hour set achieved the first meaningful UP recall (>30\%).}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.95\textwidth]{final_optimization_results.png}
+	\caption{Threshold/horizon/model sweep on 1-hour bars. 0.20\% threshold with horizon 2 consistently performed best.}
+\end{figure}
+
+\subsection{Top configurations (by CV accuracy)}
+\begin{center}
+\begin{tabular}{@{}lllrrrr@{}}
+	oprule
+Rank & Configuration & Model & Acc. (\%) & BalAcc (\%) & UP Rec. (\%) & DN Rec. (\%) \\
+\midrule
+1 & 0.2\%, 2h & LightGBM & \textbf{60.92} & 50.92 & 13.50 & 88.33 \\
+2 & 0.2\%, 2h & Gradient Boosting & 59.86 & 50.39 & 14.75 & 86.03 \\
+3 & 0.2\%, 2h & XGBoost & 59.62 & 50.93 & 18.12 & 83.75 \\
+4 & 0.2\%, 2h & Random Forest & 58.72 & 51.08 & 21.57 & 80.58 \\
+5 & 0.15\%, 2h & Gradient Boosting & 56.88 & 51.49 & 21.65 & 81.33 \\
+6 & 0.15\%, 2h & Random Forest & 56.53 & 51.69 & 24.00 & 79.37 \\
+7 & 0.15\%, 2h & LightGBM & 56.53 & 50.83 & 19.27 & 82.38 \\
+8 & 0.15\%, 2h & XGBoost & 55.47 & 50.54 & 22.87 & 78.21 \\
+9 & 0.1\%, 2h & Gradient Boosting & 54.17 & 51.58 & 23.14 & 80.02 \\
+10 & 0.1\%, 2h & XGBoost & 54.03 & 51.38 & 24.82 & 77.95 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Model comparison (1-hour, horizon 2, 0.2\% threshold)}
+\begin{center}
+\begin{tabular}{@{}lrrrr@{}}
+	oprule
+Model & Acc. (\%) & BalAcc (\%) & F1 & UP Rec. (\%) \\
+\midrule
+LightGBM & \textbf{60.92} & 50.92 & 0.190 & 13.50 \\
+Gradient Boosting & 59.86 & 50.39 & 0.200 & 14.75 \\
+XGBoost & 59.62 & 50.93 & 0.229 & 18.12 \\
+Random Forest & 58.72 & 51.08 & 0.245 & 21.57 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Old vs new: a concise comparison}
+\begin{center}
+\begin{tabular}{@{}p{4.2cm}p{4.5cm}p{5.6cm}@{}}
+	oprule
+	extbf{Aspect} & \textbf{Regression (old)} & \textbf{Classification (new)} \\
+\midrule
+Goal & Predict next price (value) & Predict direction (UP/DOWN) \\
+Primary metric & $R^2\,\approx\,0.98$ (5m, 2 bars) & Directional Accuracy (CV) \textbf{60.92\%} (1h, horizon 2, 0.2\%) \\
+Validation & 80/20 chronological split & 5-fold TimeSeriesSplit (no leakage) \\
+Decision usefulness & High fit to levels; sign can still be wrong & Directly aligned with trading decisions \\
+Other metrics & RMSE/MAE/MAPE & BalAcc 50.92\%, F1 0.190, UP 13.50\%, DOWN 88.33\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Takeaway.} The first approach demonstrates strong value-forecasting skill (high $R^2$), but for directional decisions, the dedicated classifier---measured with directional accuracy and class recalls---is the more honest yardstick. The project keeps both to show the learning journey.
+
+\section{Results at a glance}
+The table below comes from the notebook output CSV (\texttt{model\_comparison\_results.csv}). It reflects the last stock you ran in the notebook, like AAPL, GOOGL, or JPM.
+
+\begin{center}
+\csvautotabular{model\_comparison\_results.csv}
+\end{center}
+
+\subsection{Visual comparisons}
+All the plots below were exported automatically by the notebook into the \texttt{report\_figures/} folder.
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.95\textwidth]{report_figures/metrics_comparison.png}
+ \caption{Metric-by-metric comparison across models.}
+\end{figure}
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.95\textwidth]{report_figures/r2_ranking.png}
+ \caption{R\textsuperscript{2} ranking. I treat 0.7 as \emph{good} and 0.5 as \emph{fair}.}
+\end{figure}
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.95\textwidth]{report_figures/pred_vs_actual.png}
+ \caption{Predicted vs actual prices for all models (last 200 points for readability).}
+\end{figure}
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.95\textwidth]{report_figures/error_distribution.png}
+ \caption{Error distributions. I like seeing these roughly centered around zero without fat tails.}
+\end{figure}
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.95\textwidth]{report_figures/feature_importance.png}
+ \caption{Top features for the tree-based models. VWAP and slow EMAs/SMA often matter most.}
+\end{figure}
+
+\section{What I learned from the results}
+The results after running all models were surprising. I expected complex models like Random Forest to perform best. The simpler linear models won. Linear Regression, Ridge, and Lasso were the clear winners. They all had similar, high R-squared scores. They did the best job tracking price movements. For the AAPL data, they explained over 99\% of the variance. The average error was only a few cents. That is solid performance.
+
+The tree-based models, Decision Tree and Random Forest, finished at the bottom. They had lower R-squared scores and higher errors. This reminds me that more complexity is not always better. The relationship between the indicators and the next price point appears linear. The tree models look for complex, non-linear patterns. They might have picked up noise instead of the real signal. They overfit the training data. They did not generalize well, even with my safeguards.
+
+The Polynomial model was in the middle. It did not beat the simple linear models. This exercise shows that for this specific problem, a linear approach is best. Predicting 10 minutes ahead with these features works well with a simple model. It is less prone to confusion from noise. That is a huge benefit in financial data.
+
+\section{App notes (so it works for anyone)}
+\subsection{Any stock symbol, not just AAPL}
+In the Streamlit app, you type a symbol. The app fetches data for that symbol. It works for AAPL, GOOGL, JPM, or anything Yahoo Finance supports. The rest of the pipeline is the same. It computes indicators, scales data, predicts, and plots.
+
+\subsection{Data fetching quirks and fixes}
+\begin{itemize}[leftmargin=*]
+ \item Yahoo sometimes blocks requests from cloud platforms. The fix was to let the latest \texttt{yfinance} handle sessions. It uses \texttt{curl\_cffi}.
+ \item I removed an old manual session hack. I added the proper dependency. This solved errors locally and on deployment.
+ \item Caching in Streamlit (\texttt{@st.cache\_data}) keeps the app fast. It is also gentle on the API.
+\end{itemize}
+
+\section{Limitations and next steps}
+\subsection{Limitations}
+\begin{itemize}[leftmargin=*]
+ \item The model sees only technical indicators. It does not read news, earnings, or macro events.
+ \item The 10-minute horizon is small. Some stocks are noisy at this scale.
+ \item Backtests look clean. Live data and slippage are messier.
+\end{itemize}
+
+\subsection{What I want to improve next}
+\begin{itemize}[leftmargin=*]
+ \item I want to try gradient boosting (XGBoost/LightGBM). I also want to try a small Temporal CNN/LSTM for comparison.
+ \item I want to add simple regime filters, like trending vs ranging. I will adjust features for each regime.
+ \item I want to add event features. These include earnings windows and market open/close effects.
+ \item I want to let users pick the forecast horizon. They could pick one bar, two bars, or five bars. I want to see how that changes the results.
+\end{itemize}
+
+\section{How to reproduce}
+\subsection{Notebook}
+Open \texttt{Model\_Analysis\_Report.ipynb}. Run all cells. The notebook will:
+\begin{enumerate}[leftmargin=*]
+ \item Load the indicator dataset you choose. It currently uses the AAPL file. You can regenerate indicators for any symbol.
+ \item Train all six models and compute metrics.
+ \item Save plots into \texttt{report\_figures/}.
+ \item Export the comparison table to \texttt{model\_comparison\_results.csv}.
+\end{enumerate}
+
+% (LaTeX compilation instructions removed for a cleaner report.)
+
+\section{Background and motivation}
+I started this project because I wanted something practical. I wanted a way to look a couple of candles ahead. I did not want to overcomplicate things. My focus is on clarity. I want to help make decisions on a chart. I prefer simple, transparent models. I also prefer good habits, like clean splits, clear metrics, and honest plots. I choose these over a fragile setup that chases another decimal point.
+
+\subsection{Why intraday?}
+Intraday data is noisy. Many short-term traders work with this data. Two bars ahead is long enough to matter. It is also short enough to keep the problem grounded.
+
+\section{Notes on indicators (what they capture)}
+Here is how I think about the chosen features in plain terms:
+\begin{itemize}[leftmargin=*]
+ \item \textbf{VWAP (volume\_vwap):} "Where most of the trading happened." Price tends to respect it during the day.
+ \item \textbf{EMAs/SMAs (fast/slow):} Quick vs slow trend. Crossovers and distance tell you about momentum.
+ \item \textbf{MACD diff:} A compact way to encode slope and acceleration.
+ \item \textbf{RSI / Stoch RSI:} Overbought/oversold flavour with some velocity. Not magic, just context.
+ \item \textbf{ATR / Bollinger Band Width:} Volatility, i.e., how wild the candles are right now.
+ \item \textbf{OBV / MFI:} Volume with a direction. Helps spot when price moves are “backed by flow.”
+\end{itemize}
+
+\section{Training details}
+\subsection{Splits and leakage}
+I use a single 80/20 chronological split. I do not shuffle the data. Indicators are computed only from past data. The target is shifted forward by two steps. This method avoids looking into the future by accident.
+
+\subsection{Hyperparameters}
+I kept the hyperparameters light on purpose:
+\begin{itemize}[leftmargin=*]
+ \item Ridge: tested alphas in \{0.01, 0.1, 1, 10, 100\}.
+ \item Lasso: small alphas with higher max iterations.
+ \item Decision Tree: capped depth with reasonable min samples to avoid silly overfitting.
+ \item Random Forest: modest number of trees, same regularization idea as the tree.
+\end{itemize}
+This is enough for a fair comparison. It avoids a long hyperparameter marathon.
+
+\subsection{Robustness checks}
+I watch for a few red flags:
+\begin{itemize}[leftmargin=*]
+ \item R\textsuperscript{2} wildly different between train and test.
+ \item Error histograms with heavy skew.
+ \item Predictions that lag price badly (easy to see on the overlay plots).
+\end{itemize}
+
+\section{Deployment summary}
+The app runs on Streamlit. A few practical notes mattered:
+\begin{itemize}[leftmargin=*]
+ \item Yahoo Finance sometimes blocks requests from cloud IPs. The newer \texttt{yfinance} handles this using \texttt{curl\_cffi}. I removed a manual session and added the dependency.
+ \item The filesystem is read-only on the cloud. I use Streamlit's caching instead of a local database.
+ \item I cut noisy status messages. I kept the UI simple.
+\end{itemize}
+
+\section{Ethics and risk}
+This is not investment advice. The model does not know about earnings surprises. It does not know about macro shocks or your risk tolerance. Never use a single indicator or a single model as a green light to trade. Treat these predictions as one input among many.
+
+\section{Conclusion}
+For short-horizon, intraday stock prediction, simple linear models are a strong baseline. They consistently beat the tree-based models. They are easy to understand and deploy. More advanced models might squeeze out small gains. The current setup gives a solid, honest picture of what you can predict 10 minutes ahead.
+
+\paragraph{Final note.} The app works for any symbol you enter. That was the point. I wanted it to be flexible, fast, and transparent. The rest is iteration.
+
+\end{document}

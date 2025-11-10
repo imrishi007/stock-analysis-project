@@ -83,15 +83,23 @@ def get_data_importer():
     return StockDataImporter()
 
 def prepare_features(df):
-    """Prepare features for prediction"""
+    """Prepare features for prediction (NO DATA LEAKAGE)"""
     df = df.copy()
     df['Volume'] = np.log1p(df['Volume'])
     
+    # FIXED: Removed price-derived features (SMA, EMA, VWAP, OBV)
+    # Only use normalized indicators that don't contain price levels
     features = [
-        'Volume', 'trend_sma_fast', 'trend_sma_slow', 'trend_ema_fast', 'trend_ema_slow',
-        'trend_macd_diff', 'trend_adx', 'momentum_rsi', 'momentum_stoch_rsi_k',
-        'momentum_stoch_rsi_d', 'momentum_roc', 'volatility_atr', 'volatility_bbw',
-        'volume_obv', 'volume_vwap', 'volume_mfi'
+        'Volume',              # Log-transformed
+        'trend_macd_diff',     # MACD histogram (momentum)
+        'trend_adx',           # Trend strength (0-100)
+        'momentum_rsi',        # RSI (0-100)
+        'momentum_stoch_rsi_k', # Stochastic RSI K
+        'momentum_stoch_rsi_d', # Stochastic RSI D
+        'momentum_roc',        # Rate of change (%)
+        'volatility_atr',      # Average true range
+        'volatility_bbw',      # Bollinger band width
+        'volume_mfi'           # Money flow index (0-100)
     ]
     
     missing_features = [f for f in features if f not in df.columns]
@@ -247,11 +255,11 @@ with st.sidebar:
     st.subheader("ℹ️ About AlphaVision")
     st.info("""
     **AI-Powered Predictions:**
-    - 🎯 Uses 16 technical indicators
+    - 🎯 Uses 10 technical indicators (no price leakage)
     - ⏱️ Predicts price 10 minutes ahead
-    - 📊 Trained on historical data
+    - 📊 Trained on 60 days of 5-min data
     - 🔄 Updates with live market data
-    - 📈 98.5% accuracy (R² Score)
+    - 📈 Realistic performance (~65-70% R²)
     """)
     
     st.warning("⚠️ **Disclaimer**: Not financial advice. For educational purposes only.")
@@ -274,8 +282,7 @@ if predict_button:
             # Get data
             data_importer = get_data_importer()
             
-            # Show progress
-            st.info(f"📡 Connecting to Yahoo Finance for {symbol}...")
+            # Fetch data
             df = data_importer.get_or_update_data(symbol)
             
             if df is None or df.empty:

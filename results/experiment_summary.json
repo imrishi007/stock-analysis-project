@@ -1,0 +1,30 @@
+{
+    "total_configurations_tested": 28,
+    "models_tested": [
+        "Random Forest",
+        "XGBoost",
+        "LightGBM",
+        "Gradient Boosting"
+    ],
+    "thresholds_tested": [
+        0.0005,
+        0.001,
+        0.0015,
+        0.002
+    ],
+    "horizons_tested": [
+        2,
+        5,
+        10
+    ],
+    "best_configuration": {
+        "configuration": "Higher threshold: 0.2%, 2 periods ahead",
+        "model": "LightGBM",
+        "accuracy": 0.6092089728453366,
+        "balanced_accuracy": 0.5091612712082852,
+        "up_recall": 0.1350416765606639,
+        "down_recall": 0.8832808658559067,
+        "f1_score": 0.1904549994607207
+    },
+    "models_above_60_pct": 1
+}

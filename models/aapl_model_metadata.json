@@ -1,0 +1,27 @@
+{
+    "model_type": "XGBoost Classifier",
+    "ticker": "AAPL",
+    "timeframe": "1h",
+    "period": "730d",
+    "threshold": 0.002,
+    "threshold_pct": "0.2%",
+    "prediction_horizon": 2,
+    "prediction_horizon_desc": "2 hours",
+    "samples": 5084,
+    "features": 86,
+    "performance": {
+        "directional_accuracy": 0.985837922895358,
+        "balanced_accuracy": 0.9848569166271591,
+        "f1_score": 0.9810026385224274,
+        "auc_roc": 0.9989896006307963,
+        "up_recall": 0.9810026385224274,
+        "down_recall": 0.9887111947318908
+    },
+    "confusion_matrix": {
+        "true_negatives": 3153,
+        "false_positives": 36,
+        "false_negatives": 36,
+        "true_positives": 1859
+    },
+    "training_date": "2025-11-10 22:03:47"
+}
