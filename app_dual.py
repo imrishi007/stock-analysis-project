@@ -595,7 +595,7 @@ def main():
             
             # Confidence gauge
             st.plotly_chart(plot_confidence_gauge(class_result['confidence'], class_result['direction']), 
-                          use_container_width=True)
+                          use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
         
         with col2:
             st.markdown("### 📊 Model 2: Price Prediction")
@@ -623,7 +623,7 @@ def main():
         # Model Agreement Chart
         st.markdown("### 🤝 Model Agreement Analysis")
         comparison_fig, agree = plot_prediction_comparison(class_result, price_change_pct)
-        st.plotly_chart(comparison_fig, use_container_width=True)
+        st.plotly_chart(comparison_fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
         
         st.divider()
         
@@ -631,7 +631,7 @@ def main():
         st.markdown("### 📈 Technical Analysis Chart")
         if df_hist is not None:
             price_chart = plot_price_chart_with_indicators(df_hist, ticker, current_price, predicted_price)
-            st.plotly_chart(price_chart, use_container_width=True)
+            st.plotly_chart(price_chart, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True, 'modeBarButtonsToAdd': ['drawline', 'drawopenpath', 'eraseshape']})
         
         st.divider()
         
@@ -645,7 +645,7 @@ def main():
                 'trend_macd_diff', 'trend_adx', 'momentum_rsi', 'momentum_stoch_rsi_k'
             ]
             radar_fig = plot_feature_importance_radar(X_reg, feature_names)
-            st.plotly_chart(radar_fig, use_container_width=True)
+            st.plotly_chart(radar_fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
         
         with col_feat2:
             st.markdown("### 📊 Probability Breakdown")
@@ -670,7 +670,7 @@ def main():
                 margin=dict(l=60, r=60, t=60, b=60),
                 dragmode='pan'
             )
-            st.plotly_chart(fig_prob, use_container_width=True)
+            st.plotly_chart(fig_prob, use_container_width=True, config={'scrollZoom': True})
         
         # Trading Insights
         st.divider()
